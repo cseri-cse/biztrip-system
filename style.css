@@ -101,6 +101,31 @@ main {
 .abroad-only { display: none; }
 .abroad-only.show { display: block; }
 
+.schedule-day {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #fafbfc;
+}
+.schedule-day-header { font-weight: bold; font-size: 14px; margin-bottom: 8px; }
+.schedule-item-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.schedule-item-row input[type=time] {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  width: 110px;
+}
+.schedule-item-row input[type=text] {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.schedule-item-row button.ghost { padding: 6px 10px; font-size: 12px; }
+.schedule-day > button.addScheduleItemBtn { margin-top: 2px; font-size: 12px; padding: 6px 12px; }
+
 button.primary {
   background: var(--primary);
   color: #fff;

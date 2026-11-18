@@ -62,21 +62,64 @@ document.querySelectorAll('input[name=f_paymentType]').forEach(r => {
 });
 document.getElementById('f_paymentAmount').disabled = true;
 
-// ===================== 출장 일정 (출장 기간에 맞춰 자동 생성) =====================
-const scheduleRowsEl = document.getElementById('scheduleRows');
-function addScheduleRow(value) {
-  const div = document.createElement('div');
-  div.className = 'field';
-  div.style.display = 'flex';
-  div.style.gap = '8px';
-  div.innerHTML = `<input type="text" class="scheduleInput" placeholder="예: 2026-12-01 학술대회 등록 및 이동" style="flex:1" value="${value || ''}">
-    <button type="button" class="ghost removeScheduleRow">삭제</button>`;
-  div.querySelector('.removeScheduleRow').addEventListener('click', () => div.remove());
-  scheduleRowsEl.appendChild(div);
+// ===================== 출장 일정 (출장 기간에 맞춰 날짜별로 자동 생성, 날짜마다 시간대별 일정 여러 개 추가) =====================
+const scheduleDaysEl = document.getElementById('scheduleDays');
+let scheduleData = {}; // { 'YYYY-MM-DD': [{start:'10:00', end:'14:00', text:'용산역->여수엑스포역'}, ...] }
+
+function formatDateLabelKo(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
-// 출장 기간(시작~종료)을 입력하면 하루 1줄씩 자동으로 일정 칸을 만들어줌.
-// 날짜를 다시 바꾸면 기존에 입력한 일정 텍스트는 초기화되니 날짜부터 먼저 확정하는 걸 권장.
+function buildScheduleItemRow(dateStr, itemIdx, item) {
+  const row = document.createElement('div');
+  row.className = 'schedule-item-row';
+  row.innerHTML = `
+    <input type="time" class="sch-start" value="${item.start || ''}">
+    <span>-</span>
+    <input type="time" class="sch-end" value="${item.end || ''}">
+    <input type="text" class="sch-text" placeholder="예: 용산역 → 여수엑스포역 / AI에이전트 검증 및 평가 세션 참석" value="${item.text || ''}" style="flex:1">
+    <button type="button" class="ghost sch-remove">삭제</button>`;
+  row.querySelector('.sch-start').addEventListener('input', e => { scheduleData[dateStr][itemIdx].start = e.target.value; });
+  row.querySelector('.sch-end').addEventListener('input', e => { scheduleData[dateStr][itemIdx].end = e.target.value; });
+  row.querySelector('.sch-text').addEventListener('input', e => { scheduleData[dateStr][itemIdx].text = e.target.value; });
+  row.querySelector('.sch-remove').addEventListener('click', () => {
+    scheduleData[dateStr].splice(itemIdx, 1);
+    if (scheduleData[dateStr].length === 0) scheduleData[dateStr].push({ start: '', end: '', text: '' });
+    renderScheduleDays();
+  });
+  return row;
+}
+
+function renderScheduleDays() {
+  const dates = Object.keys(scheduleData).sort();
+  scheduleDaysEl.innerHTML = '';
+  if (dates.length === 0) {
+    scheduleDaysEl.innerHTML = '<p class="hint">출장 기간을 먼저 선택해주세요.</p>';
+    return;
+  }
+  dates.forEach((dateStr, idx) => {
+    const dayDiv = document.createElement('div');
+    dayDiv.className = 'schedule-day';
+    dayDiv.innerHTML = `<div class="schedule-day-header">${idx + 1}. ${formatDateLabelKo(dateStr)}</div>
+      <div class="schedule-items" data-date="${dateStr}"></div>
+      <button type="button" class="ghost addScheduleItemBtn">+ 일정 추가</button>`;
+    scheduleDaysEl.appendChild(dayDiv);
+
+    const itemsEl = dayDiv.querySelector('.schedule-items');
+    scheduleData[dateStr].forEach((item, itemIdx) => {
+      itemsEl.appendChild(buildScheduleItemRow(dateStr, itemIdx, item));
+    });
+
+    dayDiv.querySelector('.addScheduleItemBtn').addEventListener('click', () => {
+      scheduleData[dateStr].push({ start: '', end: '', text: '' });
+      renderScheduleDays();
+    });
+  });
+}
+
+// 출장 기간(시작~종료)을 입력하면 하루 1개 섹션씩 자동으로 만들어줌.
+// 날짜 범위가 겹치는 날짜는 기존에 입력한 시간대별 일정이 그대로 유지됨.
 function rebuildScheduleFromDates() {
   const startVal = document.getElementById('f_tripStart').value;
   const endVal = document.getElementById('f_tripEnd').value;
@@ -86,26 +129,30 @@ function rebuildScheduleFromDates() {
   const end = new Date(endVal + 'T00:00:00');
   if (isNaN(start) || isNaN(end) || end < start) return;
 
-  const MAX_DAYS = 10; // 출장계획서 템플릿이 최대 10줄까지 지원
-  scheduleRowsEl.innerHTML = '';
+  const MAX_DAYS = 10; // 출장계획서 템플릿이 최대 10일까지 지원
+  const newDates = [];
   const cur = new Date(start);
   let count = 0;
   while (cur <= end && count < MAX_DAYS) {
-    const dateStr = cur.toISOString().slice(0, 10);
-    addScheduleRow(dateStr + ' ');
+    newDates.push(cur.toISOString().slice(0, 10));
     cur.setDate(cur.getDate() + 1);
     count++;
   }
+
+  const newScheduleData = {};
+  newDates.forEach(dateStr => {
+    newScheduleData[dateStr] = scheduleData[dateStr] || [{ start: '', end: '', text: '' }];
+  });
+  scheduleData = newScheduleData;
+  renderScheduleDays();
+
   if (count === MAX_DAYS && cur <= end) {
-    toast(`출장일정은 최대 ${MAX_DAYS}일까지만 자동 생성됩니다. 나머지는 "+ 일정 추가"로 직접 넣어주세요.`);
+    toast(`출장일정은 최대 ${MAX_DAYS}일까지만 자동 생성됩니다.`);
   }
 }
 
 document.getElementById('f_tripStart').addEventListener('change', rebuildScheduleFromDates);
 document.getElementById('f_tripEnd').addEventListener('change', rebuildScheduleFromDates);
-
-addScheduleRow(); // 날짜 입력 전 기본으로 한 줄 보여줌
-document.getElementById('addScheduleRow').addEventListener('click', () => addScheduleRow());
 
 // ===================== 교통수단 "기타" 직접입력 토글 =====================
 document.getElementById('f_transport').addEventListener('change', (e) => {
@@ -190,7 +237,12 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   try {
-    const schedule = Array.from(document.querySelectorAll('.scheduleInput')).map(i => i.value).filter(Boolean);
+    const schedule = Object.keys(scheduleData).sort().map(dateStr => ({
+      date: dateStr,
+      items: scheduleData[dateStr]
+        .filter(it => it.start || it.end || it.text)
+        .map(it => ({ start: it.start || '', end: it.end || '', text: it.text || '' })),
+    })).filter(day => day.items.length > 0);
 
     const payload = {
       name: val('f_name'),
@@ -279,9 +331,19 @@ function detailTable(r) {
     ['기내숙박', r.inflightStay], ['보험가입', r.insuranceYn], ['보험비용', r.insuranceCost],
     ['비자발급', r.visaYn], ['비자비용', r.visaCost],
   ];
-  return '<table style="width:100%;font-size:13px;margin-top:8px;">' +
+  const table = '<table style="width:100%;font-size:13px;margin-top:8px;">' +
     fields.map(([k, v]) => `<tr><td style="color:#777;padding:2px 8px 2px 0;">${k}</td><td>${v ?? '-'}</td></tr>`).join('') +
     '</table>';
+  return table + scheduleDetailHtml(r.schedule);
+}
+
+function scheduleDetailHtml(schedule) {
+  if (!Array.isArray(schedule) || schedule.length === 0) return '';
+  const days = schedule.map((day, idx) => {
+    const items = (day.items || []).map(it => `${it.start || ''}-${it.end || ''} ${it.text || ''}`.trim()).join('<br>');
+    return `<div style="margin-top:6px;"><strong>${idx + 1}. ${day.date}</strong><div style="color:#444;">${items}</div></div>`;
+  }).join('');
+  return `<div style="margin-top:8px;"><div style="color:#777;font-size:13px;">출장일정</div>${days}</div>`;
 }
 
 // ===================== 관리자 승인 =====================
