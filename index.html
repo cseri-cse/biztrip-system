@@ -185,16 +185,24 @@
 
   <!-- ===================== 관리자 ===================== -->
   <section id="tab-admin" class="tab-panel" style="display:none;">
-    <div class="card">
-      <h2>승인 처리자 정보</h2>
-      <div class="row2">
-        <div class="field"><label>이름</label><input type="text" id="admin_name" /></div>
-        <div class="field"><label>이메일</label><input type="email" id="admin_email" /></div>
-      </div>
-      <div class="field"><label>관리자 PIN</label><input type="password" id="admin_pin" placeholder="관리자에게 전달받은 PIN" /></div>
-      <button class="ghost" id="adminLoadBtn">대기중인 신청 불러오기</button>
+
+    <div class="card" id="adminLoginCard">
+      <h2>관리자 로그인</h2>
+      <div class="field"><label>이름</label><input type="text" id="admin_name" /></div>
+      <div class="field"><label>관리자 아이디 (이메일)</label><input type="email" id="admin_email" /></div>
+      <div class="field"><label>비밀번호</label><input type="password" id="admin_password" /></div>
+      <button class="primary" id="adminLoginBtn">로그인</button>
     </div>
-    <div id="adminList"></div>
+
+    <div id="adminPanel" style="display:none;">
+      <div class="card">
+        <span id="adminWhoami" style="font-size:13px;color:var(--muted);"></span>
+        <button class="ghost" id="adminLoadBtn" style="margin-left:10px;">대기중인 신청 불러오기</button>
+        <button class="ghost" id="adminLogoutBtn" style="margin-left:6px;">로그아웃</button>
+      </div>
+      <div id="adminList"></div>
+    </div>
+
   </section>
 
 </main>

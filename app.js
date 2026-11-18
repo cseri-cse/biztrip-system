@@ -346,6 +346,39 @@ function scheduleDetailHtml(schedule) {
   return `<div style="margin-top:8px;"><div style="color:#777;font-size:13px;">출장일정</div>${days}</div>`;
 }
 
+// ===================== 관리자 로그인 (세션 동안 1회만 입력) =====================
+let adminSession = null; // { name, email, password }
+
+document.getElementById('adminLoginBtn').addEventListener('click', async () => {
+  const name = document.getElementById('admin_name').value.trim();
+  const email = document.getElementById('admin_email').value.trim();
+  const password = document.getElementById('admin_password').value;
+  if (!name || !email || !password) { toast('이름/아이디/비밀번호를 모두 입력해주세요.'); return; }
+
+  const btn = document.getElementById('adminLoginBtn');
+  btn.disabled = true;
+  try {
+    await apiPost('adminLogin', { email, password });
+    adminSession = { name, email, password };
+    document.getElementById('adminWhoami').textContent = `${name} (${email})님으로 로그인됨`;
+    document.getElementById('adminLoginCard').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    document.getElementById('admin_password').value = '';
+    document.getElementById('adminLoadBtn').click();
+  } catch (err) {
+    toast('로그인 실패: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('adminLogoutBtn').addEventListener('click', () => {
+  adminSession = null;
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('adminLoginCard').style.display = 'block';
+  document.getElementById('adminList').innerHTML = '';
+});
+
 // ===================== 관리자 승인 =====================
 document.getElementById('adminLoadBtn').addEventListener('click', async () => {
   const list = document.getElementById('adminList');
@@ -378,13 +411,15 @@ function renderAdminItem(r) {
 function bindAdminActions(r) {
   const container = document.getElementById('admin-' + r.id);
   container.querySelector('.approveBtn').addEventListener('click', async () => {
-    const approverName = document.getElementById('admin_name').value.trim();
-    const approverEmail = document.getElementById('admin_email').value.trim();
-    const pin = document.getElementById('admin_pin').value.trim();
-    if (!approverName || !approverEmail || !pin) { toast('승인 처리자 이름/이메일/PIN을 모두 입력해주세요.'); return; }
+    if (!adminSession) { toast('관리자 로그인이 필요합니다.'); return; }
     try {
       toast('승인 처리 및 문서 생성 중... (시간이 다소 걸릴 수 있습니다)');
-      await apiPost('approveRequest', { id: r.id, approverName, approverEmail, pin });
+      await apiPost('approveRequest', {
+        id: r.id,
+        approverName: adminSession.name,
+        approverEmail: adminSession.email,
+        password: adminSession.password,
+      });
       toast('승인 완료, 문서가 생성되었습니다.');
       document.getElementById('adminLoadBtn').click();
     } catch (err) {
@@ -392,14 +427,17 @@ function bindAdminActions(r) {
     }
   });
   container.querySelector('.rejectBtn').addEventListener('click', async () => {
-    const approverName = document.getElementById('admin_name').value.trim();
-    const approverEmail = document.getElementById('admin_email').value.trim();
-    const pin = document.getElementById('admin_pin').value.trim();
-    if (!approverName || !approverEmail || !pin) { toast('승인 처리자 이름/이메일/PIN을 모두 입력해주세요.'); return; }
+    if (!adminSession) { toast('관리자 로그인이 필요합니다.'); return; }
     const reason = prompt('반려 사유를 입력하세요');
     if (!reason) return;
     try {
-      await apiPost('rejectRequest', { id: r.id, approverName, approverEmail, reason, pin });
+      await apiPost('rejectRequest', {
+        id: r.id,
+        approverName: adminSession.name,
+        approverEmail: adminSession.email,
+        reason,
+        password: adminSession.password,
+      });
       toast('반려 처리되었습니다.');
       document.getElementById('adminLoadBtn').click();
     } catch (err) {
