@@ -62,7 +62,7 @@ document.querySelectorAll('input[name=f_paymentType]').forEach(r => {
 });
 document.getElementById('f_paymentAmount').disabled = true;
 
-// ===================== 출장 일정 (가변 리스트) =====================
+// ===================== 출장 일정 (출장 기간에 맞춰 자동 생성) =====================
 const scheduleRowsEl = document.getElementById('scheduleRows');
 function addScheduleRow(value) {
   const div = document.createElement('div');
@@ -74,9 +74,43 @@ function addScheduleRow(value) {
   div.querySelector('.removeScheduleRow').addEventListener('click', () => div.remove());
   scheduleRowsEl.appendChild(div);
 }
-addScheduleRow();
-addScheduleRow();
+
+// 출장 기간(시작~종료)을 입력하면 하루 1줄씩 자동으로 일정 칸을 만들어줌.
+// 날짜를 다시 바꾸면 기존에 입력한 일정 텍스트는 초기화되니 날짜부터 먼저 확정하는 걸 권장.
+function rebuildScheduleFromDates() {
+  const startVal = document.getElementById('f_tripStart').value;
+  const endVal = document.getElementById('f_tripEnd').value;
+  if (!startVal || !endVal) return;
+
+  const start = new Date(startVal + 'T00:00:00');
+  const end = new Date(endVal + 'T00:00:00');
+  if (isNaN(start) || isNaN(end) || end < start) return;
+
+  const MAX_DAYS = 10; // 출장계획서 템플릿이 최대 10줄까지 지원
+  scheduleRowsEl.innerHTML = '';
+  const cur = new Date(start);
+  let count = 0;
+  while (cur <= end && count < MAX_DAYS) {
+    const dateStr = cur.toISOString().slice(0, 10);
+    addScheduleRow(dateStr + ' ');
+    cur.setDate(cur.getDate() + 1);
+    count++;
+  }
+  if (count === MAX_DAYS && cur <= end) {
+    toast(`출장일정은 최대 ${MAX_DAYS}일까지만 자동 생성됩니다. 나머지는 "+ 일정 추가"로 직접 넣어주세요.`);
+  }
+}
+
+document.getElementById('f_tripStart').addEventListener('change', rebuildScheduleFromDates);
+document.getElementById('f_tripEnd').addEventListener('change', rebuildScheduleFromDates);
+
+addScheduleRow(); // 날짜 입력 전 기본으로 한 줄 보여줌
 document.getElementById('addScheduleRow').addEventListener('click', () => addScheduleRow());
+
+// ===================== 교통수단 "기타" 직접입력 토글 =====================
+document.getElementById('f_transport').addEventListener('change', (e) => {
+  document.getElementById('transportOtherField').style.display = e.target.value === '기타' ? 'block' : 'none';
+});
 
 // ===================== 이메일 입력 시 기존 서명 조회 =====================
 document.getElementById('f_email').addEventListener('blur', (e) => {
@@ -166,11 +200,12 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
       domesticOrAbroad: checkedVal('f_domestic'),
       region: val('f_region'),
       purpose: val('f_purpose'),
-      transportMeans: val('f_transport'),
+      transportMeans: val('f_transport') === '기타' ? val('f_transportOther') : val('f_transport'),
       paymentType: checkedVal('f_paymentType'),
       paymentAmount: val('f_paymentAmount'),
       mealsProvided: val('f_mealsProvided'),
       mealsRequested: val('f_mealsRequested'),
+      mealsInflight: val('f_mealsInflight'),
       roommate: val('f_roommate'),
       inflightStay: val('f_inflightStay') || 'X',
       insuranceYn: checkedVal('f_insuranceYn'),
@@ -240,7 +275,7 @@ function renderRequestItem(r) {
 function detailTable(r) {
   const fields = [
     ['교통수단', r.transportMeans], ['결제구분', r.paymentType], ['결제금액', r.paymentAmount],
-    ['제공식사', r.mealsProvided], ['신청식사', r.mealsRequested], ['동숙인', r.roommate],
+    ['제공식사', r.mealsProvided], ['신청식사', r.mealsRequested], ['기내식', r.mealsInflight], ['동숙인', r.roommate],
     ['기내숙박', r.inflightStay], ['보험가입', r.insuranceYn], ['보험비용', r.insuranceCost],
     ['비자발급', r.visaYn], ['비자비용', r.visaCost],
   ];
@@ -283,10 +318,11 @@ function bindAdminActions(r) {
   container.querySelector('.approveBtn').addEventListener('click', async () => {
     const approverName = document.getElementById('admin_name').value.trim();
     const approverEmail = document.getElementById('admin_email').value.trim();
-    if (!approverName || !approverEmail) { toast('승인 처리자 이름/이메일을 입력해주세요.'); return; }
+    const pin = document.getElementById('admin_pin').value.trim();
+    if (!approverName || !approverEmail || !pin) { toast('승인 처리자 이름/이메일/PIN을 모두 입력해주세요.'); return; }
     try {
       toast('승인 처리 및 문서 생성 중... (시간이 다소 걸릴 수 있습니다)');
-      await apiPost('approveRequest', { id: r.id, approverName, approverEmail });
+      await apiPost('approveRequest', { id: r.id, approverName, approverEmail, pin });
       toast('승인 완료, 문서가 생성되었습니다.');
       document.getElementById('adminLoadBtn').click();
     } catch (err) {
@@ -296,10 +332,12 @@ function bindAdminActions(r) {
   container.querySelector('.rejectBtn').addEventListener('click', async () => {
     const approverName = document.getElementById('admin_name').value.trim();
     const approverEmail = document.getElementById('admin_email').value.trim();
+    const pin = document.getElementById('admin_pin').value.trim();
+    if (!approverName || !approverEmail || !pin) { toast('승인 처리자 이름/이메일/PIN을 모두 입력해주세요.'); return; }
     const reason = prompt('반려 사유를 입력하세요');
     if (!reason) return;
     try {
-      await apiPost('rejectRequest', { id: r.id, approverName, approverEmail, reason });
+      await apiPost('rejectRequest', { id: r.id, approverName, approverEmail, reason, pin });
       toast('반려 처리되었습니다.');
       document.getElementById('adminLoadBtn').click();
     } catch (err) {

@@ -33,32 +33,49 @@
     </div>
 
     <div class="card">
-      <h2>1. 신청인 및 출장 정보</h2>
-      <div class="field"><label>이름</label><input type="text" id="f_name" /></div>
-      <div class="row2">
-        <div class="field"><label>출장 기간 - 시작</label><input type="date" id="f_tripStart" /></div>
-        <div class="field"><label>출장 기간 - 종료</label><input type="date" id="f_tripEnd" /></div>
-      </div>
+      <h2>1. 국내/국외 구분</h2>
       <div class="field">
-        <label>국내외 구분</label>
         <div class="radio-group">
           <label><input type="radio" name="f_domestic" value="국내" checked /> 국내</label>
           <label><input type="radio" name="f_domestic" value="국외" /> 국외</label>
         </div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>2. 신청인 및 출장 정보</h2>
+      <div class="field"><label>이름</label><input type="text" id="f_name" /></div>
+      <div class="row2">
+        <div class="field"><label>출장 기간 - 시작</label><input type="date" id="f_tripStart" /></div>
+        <div class="field"><label>출장 기간 - 종료</label><input type="date" id="f_tripEnd" /></div>
+      </div>
       <div class="field"><label>출장 지역</label><input type="text" id="f_region" placeholder="예: 제주도 / 미국 로스앤젤레스" /></div>
       <div class="field"><label>출장 목적</label><input type="text" id="f_purpose" placeholder="예: OOO 춘계 학술대회 참여 및 논문 발표" /></div>
       <div class="field">
-        <label>출장 일정 (학술대회/일자별 일정 — 출장계획서에 그대로 들어갑니다)</label>
+        <label>출장 일정 (출장 기간을 입력하면 날짜별로 자동 생성됩니다 — 내용만 채워주세요)</label>
         <div id="scheduleRows"></div>
         <button type="button" class="ghost" id="addScheduleRow">+ 일정 추가</button>
       </div>
     </div>
 
     <div class="card">
-      <h2>2. 출장비 내용 (공통)</h2>
+      <h2>3. 출장비 내용 (공통)</h2>
       <h3>교통비</h3>
-      <div class="field"><label>교통수단</label><input type="text" id="f_transport" placeholder="예: 철도(KTX 등), 고속버스, 항공, 선박" /></div>
+      <div class="field">
+        <label>교통수단</label>
+        <select id="f_transport">
+          <option value="철도(KTX 등)">철도(KTX 등)</option>
+          <option value="고속버스">고속버스</option>
+          <option value="항공">항공</option>
+          <option value="선박">선박</option>
+          <option value="자가용">자가용</option>
+          <option value="기타">기타 (직접 입력)</option>
+        </select>
+      </div>
+      <div class="field" id="transportOtherField" style="display:none;">
+        <label>교통수단 직접 입력</label>
+        <input type="text" id="f_transportOther" placeholder="예: 렌터카" />
+      </div>
       <div class="field">
         <label>결제 구분</label>
         <div class="radio-group">
@@ -76,6 +93,10 @@
         <div class="field"><label>제공된 식사 (횟수)</label><input type="number" id="f_mealsProvided" value="0" /></div>
         <div class="field"><label>지급 신청 식사 (횟수)</label><input type="number" id="f_mealsRequested" value="0" /></div>
       </div>
+      <div class="field abroad-only" id="mealsInflightField">
+        <label>기내식 (횟수) — 국외 출장만 해당</label>
+        <input type="number" id="f_mealsInflight" value="0" />
+      </div>
 
       <h3>숙박비</h3>
       <div class="field"><label>함께 숙박한 사람의 이름</label><input type="text" id="f_roommate" placeholder="예: 홍길동 / 혼자 숙박" /></div>
@@ -83,7 +104,7 @@
     </div>
 
     <div class="card abroad-only" id="abroadExtraCard">
-      <h2>3. 추가 지급 요청 내용 (국외 출장 및 선택 사항)</h2>
+      <h2>4. 추가 지급 요청 내용 (국외 출장 및 선택 사항)</h2>
       <h3>여행자 보험</h3>
       <div class="field">
         <label>가입 여부</label>
@@ -106,7 +127,7 @@
     </div>
 
     <div class="card">
-      <h2>4. 증빙자료 첨부</h2>
+      <h2>5. 증빙자료 첨부</h2>
       <div class="evidence-box" data-category="교통비">
         <strong>교통비</strong> — 결제영수증/예약확인서/탑승권 등
         <input type="file" multiple class="evidenceInput" />
@@ -140,7 +161,7 @@
     </div>
 
     <div class="card">
-      <h2>5. 출장자 서명 등록</h2>
+      <h2>6. 출장자 서명 등록</h2>
       <p class="hint">출장계획서에 들어갈 서명입니다. 최초 1회만 등록하면 다음부터는 자동으로 재사용됩니다.</p>
       <div id="sigStatus" class="hint"></div>
       <div class="sig-pad-wrap">
@@ -171,6 +192,7 @@
         <div class="field"><label>이름</label><input type="text" id="admin_name" /></div>
         <div class="field"><label>이메일</label><input type="email" id="admin_email" /></div>
       </div>
+      <div class="field"><label>관리자 PIN</label><input type="password" id="admin_pin" placeholder="관리자에게 전달받은 PIN" /></div>
       <button class="ghost" id="adminLoadBtn">대기중인 신청 불러오기</button>
     </div>
     <div id="adminList"></div>
