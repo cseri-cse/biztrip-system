@@ -347,20 +347,19 @@ function scheduleDetailHtml(schedule) {
 }
 
 // ===================== 관리자 로그인 (세션 동안 1회만 입력) =====================
-let adminSession = null; // { name, email, password }
+let adminSession = null; // { email, password }
 
 document.getElementById('adminLoginBtn').addEventListener('click', async () => {
-  const name = document.getElementById('admin_name').value.trim();
   const email = document.getElementById('admin_email').value.trim();
   const password = document.getElementById('admin_password').value;
-  if (!name || !email || !password) { toast('이름/아이디/비밀번호를 모두 입력해주세요.'); return; }
+  if (!email || !password) { toast('아이디/비밀번호를 모두 입력해주세요.'); return; }
 
   const btn = document.getElementById('adminLoginBtn');
   btn.disabled = true;
   try {
     await apiPost('adminLogin', { email, password });
-    adminSession = { name, email, password };
-    document.getElementById('adminWhoami').textContent = `${name} (${email})님으로 로그인됨`;
+    adminSession = { email, password };
+    document.getElementById('adminWhoami').textContent = `${email}님으로 로그인됨`;
     document.getElementById('adminLoginCard').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     document.getElementById('admin_password').value = '';
@@ -416,7 +415,6 @@ function bindAdminActions(r) {
       toast('승인 처리 및 문서 생성 중... (시간이 다소 걸릴 수 있습니다)');
       await apiPost('approveRequest', {
         id: r.id,
-        approverName: adminSession.name,
         approverEmail: adminSession.email,
         password: adminSession.password,
       });
@@ -433,7 +431,6 @@ function bindAdminActions(r) {
     try {
       await apiPost('rejectRequest', {
         id: r.id,
-        approverName: adminSession.name,
         approverEmail: adminSession.email,
         reason,
         password: adminSession.password,
