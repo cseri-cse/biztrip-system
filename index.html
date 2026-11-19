@@ -50,7 +50,20 @@
         <div class="field"><label>출장 기간 - 종료</label><input type="date" id="f_tripEnd" /></div>
       </div>
       <div class="field"><label>출장 지역</label><input type="text" id="f_region" placeholder="예: 제주도 / 미국 로스앤젤레스" /></div>
-      <div class="field"><label>출장 목적</label><input type="text" id="f_purpose" placeholder="예: OOO 춘계 학술대회 참여 및 논문 발표" /></div>
+      <div class="field">
+        <label>출장 목적 유형</label>
+        <div class="radio-group" id="purposeTypeGroup">
+          <label><input type="radio" name="f_purposeType" value="학회(세미나) 단순 참석" /> 학회(세미나) 단순 참석</label>
+          <label><input type="radio" name="f_purposeType" value="학회(세미나) 발표 참석" /> 학회(세미나) 발표 참석</label>
+          <label><input type="radio" name="f_purposeType" value="일반 출장" /> 일반 출장</label>
+          <label><input type="radio" name="f_purposeType" value="교육 참석" /> 교육 참석</label>
+        </div>
+      </div>
+      <div class="field"><label>출장 목적 (상세)</label><input type="text" id="f_purpose" placeholder="예: OOO 춘계 학술대회 참여" /></div>
+      <div class="field" id="paperTitleField" style="display:none;">
+        <label>발표 논문 제목</label>
+        <input type="text" id="f_paperTitle" placeholder="발표하는 논문 제목을 입력해주세요" />
+      </div>
       <div class="field">
         <label>출장 일정 (출장 기간을 입력하면 날짜별로 자동 생성됩니다 — 각 날짜마다 시간대별 일정을 추가해주세요)</label>
         <div id="scheduleDays"><p class="hint">출장 기간을 먼저 선택해주세요.</p></div>
@@ -61,40 +74,44 @@
       <h2>3. 출장비 내용 (공통)</h2>
       <h3>교통비</h3>
       <div class="field">
-        <label>교통수단</label>
-        <select id="f_transport">
-          <option value="철도(KTX 등)">철도(KTX 등)</option>
-          <option value="고속버스">고속버스</option>
-          <option value="항공">항공</option>
-          <option value="선박">선박</option>
-          <option value="자가용">자가용</option>
-          <option value="기타">기타 (직접 입력)</option>
-        </select>
+        <label>교통수단 (해당하는 것을 모두 선택)</label>
+        <div class="radio-group" id="transportGroup">
+          <label><input type="checkbox" name="f_transport" value="철도(KTX 등)" /> 철도(KTX 등)</label>
+          <label><input type="checkbox" name="f_transport" value="고속버스" /> 고속버스</label>
+          <label><input type="checkbox" name="f_transport" value="항공" /> 항공</label>
+          <label><input type="checkbox" name="f_transport" value="선박" /> 선박</label>
+          <label><input type="checkbox" name="f_transport" value="자가용" /> 자가용</label>
+          <label><input type="checkbox" name="f_transport" value="기타" /> 기타</label>
+        </div>
       </div>
       <div class="field" id="transportOtherField" style="display:none;">
-        <label>교통수단 직접 입력</label>
+        <label>기타 교통수단 직접 입력</label>
         <input type="text" id="f_transportOther" placeholder="예: 렌터카" />
       </div>
       <div class="field">
         <label>결제 구분</label>
         <div class="radio-group">
-          <label><input type="radio" name="f_paymentType" value="연구비카드결제" checked /> 연구비카드 결제</label>
+          <label><input type="radio" name="f_paymentType" value="연구비카드 결제 (선결제)" checked /> 연구비카드 결제 (선결제)</label>
           <label><input type="radio" name="f_paymentType" value="개인결제" /> 개인 결제</label>
         </div>
       </div>
       <div class="field" id="paymentAmountField">
         <label>결제 금액 (개인결제 시에만 입력 — 수수료 포함 총 결제금액)</label>
-        <input type="number" id="f_paymentAmount" />
+        <div class="input-unit"><input type="text" inputmode="numeric" id="f_paymentAmount" /><span class="unit" id="paymentUnit">원</span></div>
       </div>
 
       <h3>식비</h3>
       <div class="row2">
-        <div class="field"><label>제공된 식사 (횟수)</label><input type="number" id="f_mealsProvided" value="0" /></div>
-        <div class="field"><label>지급 신청 식사 (횟수)</label><input type="number" id="f_mealsRequested" value="0" /></div>
+        <div class="field"><label>제공된 식사 (횟수)</label><input type="number" min="0" id="f_mealsProvided" value="0" /></div>
+        <div class="field abroad-only" id="mealsInflightField">
+          <label>기내식 (횟수) — 국외 출장만 해당</label>
+          <input type="number" min="0" id="f_mealsInflight" value="0" />
+        </div>
       </div>
-      <div class="field abroad-only" id="mealsInflightField">
-        <label>기내식 (횟수) — 국외 출장만 해당</label>
-        <input type="number" id="f_mealsInflight" value="0" />
+      <div class="calc-box" id="mealsCalcBox">
+        <div class="calc-label">지급 신청 식사 (자동 계산)</div>
+        <div class="calc-value"><span id="mealsRequestedDisplay">-</span></div>
+        <div class="calc-formula" id="mealsFormula">출장 기간을 입력하면 계산됩니다. (1일 3회 기준)</div>
       </div>
 
       <h3>숙박비</h3>
@@ -112,7 +129,7 @@
           <label><input type="radio" name="f_insuranceYn" value="O" /> 가입</label>
         </div>
       </div>
-      <div class="field"><label>보험 가입 비용</label><input type="number" id="f_insuranceCost" /></div>
+      <div class="field"><label>보험 가입 비용</label><div class="input-unit"><input type="number" min="0" id="f_insuranceCost" disabled /><span class="unit">원</span></div></div>
 
       <h3>비자</h3>
       <div class="field">
@@ -122,33 +139,35 @@
           <label><input type="radio" name="f_visaYn" value="O" /> 발급</label>
         </div>
       </div>
-      <div class="field"><label>비자 발급 비용</label><input type="number" id="f_visaCost" /></div>
+      <div class="field"><label>비자 발급 비용</label><div class="input-unit"><input type="number" min="0" id="f_visaCost" disabled /><span class="unit">원</span></div></div>
+
+      <div class="total-box">추가 지급 합계 <strong id="extraTotal">0</strong>원</div>
     </div>
 
     <div class="card">
       <h2>5. 증빙자료 첨부</h2>
       <div class="evidence-box" data-category="교통비">
-        <strong>교통비</strong> — 결제영수증/예약확인서/탑승권 등
+        <strong>교통비</strong><span class="req-badge" style="display:none;">필수</span> — 결제영수증/예약확인서/탑승권 등
         <input type="file" multiple class="evidenceInput" />
         <div class="files"></div>
       </div>
       <div class="evidence-box" data-category="식비">
-        <strong>식비</strong> — 일자별 영수증 (1건 이상)
+        <strong>식비</strong><span class="req-badge" style="display:none;">필수</span> — 일자별 영수증 (1건 이상)
         <input type="file" multiple class="evidenceInput" />
         <div class="files"></div>
       </div>
       <div class="evidence-box" data-category="숙박비">
-        <strong>숙박비</strong> — 결제영수증, 예약확인서
+        <strong>숙박비</strong><span class="req-badge" style="display:none;">필수</span> — 결제영수증, 예약확인서
         <input type="file" multiple class="evidenceInput" />
         <div class="files"></div>
       </div>
       <div class="evidence-box abroad-only" data-category="보험">
-        <strong>여행자보험</strong> — 결제영수증, 보험증서
+        <strong>여행자보험</strong><span class="req-badge" style="display:none;">필수</span> — 결제영수증, 보험증서
         <input type="file" multiple class="evidenceInput" />
         <div class="files"></div>
       </div>
       <div class="evidence-box abroad-only" data-category="비자">
-        <strong>비자</strong> — 결제영수증, 비자 발급확인서
+        <strong>비자</strong><span class="req-badge" style="display:none;">필수</span> — 결제영수증, 비자 발급확인서
         <input type="file" multiple class="evidenceInput" />
         <div class="files"></div>
       </div>

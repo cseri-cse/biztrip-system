@@ -48,19 +48,120 @@ document.querySelectorAll('input[name=f_domestic]').forEach(r => {
   r.addEventListener('change', () => {
     const abroad = document.querySelector('input[name=f_domestic]:checked').value === '국외';
     document.querySelectorAll('.abroad-only').forEach(el => el.classList.toggle('show', abroad));
+    updateMeals();
+    updateExtraTotal();
+    updateEvidenceRequired();
   });
 });
 
-// 연구비카드 결제시 결제금액 입력 비활성화 (작성요령 규칙 그대로 반영)
-document.querySelectorAll('input[name=f_paymentType]').forEach(r => {
+// 연구비카드 결제(선결제) 시 결제금액 대신 "청구 금액 없음" 표시 (작성요령 규칙 반영)
+function isCardPaymentSelected() {
+  return checkedVal('f_paymentType').indexOf('연구비카드') === 0;
+}
+function updatePaymentAmount() {
+  const input = document.getElementById('f_paymentAmount');
+  const unit = document.getElementById('paymentUnit');
+  if (isCardPaymentSelected()) {
+    input.disabled = true;
+    input.value = '청구 금액 없음';
+    unit.style.display = 'none';
+  } else {
+    if (input.disabled) input.value = '';
+    input.disabled = false;
+    unit.style.display = '';
+  }
+}
+document.querySelectorAll('input[name=f_paymentType]').forEach(r => r.addEventListener('change', updatePaymentAmount));
+document.getElementById('f_paymentAmount').addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/[^0-9]/g, '');
+});
+updatePaymentAmount();
+
+// ===================== 출장 목적 유형: 발표 참석이면 논문 제목 입력칸 표시 =====================
+document.querySelectorAll('input[name=f_purposeType]').forEach(r => {
   r.addEventListener('change', () => {
-    const isPersonal = document.querySelector('input[name=f_paymentType]:checked').value === '개인결제';
-    const input = document.getElementById('f_paymentAmount');
-    input.disabled = !isPersonal;
-    if (!isPersonal) input.value = '';
+    const presenting = checkedVal('f_purposeType').indexOf('발표') !== -1;
+    document.getElementById('paperTitleField').style.display = presenting ? 'block' : 'none';
+    if (!presenting) document.getElementById('f_paperTitle').value = '';
   });
 });
-document.getElementById('f_paymentAmount').disabled = true;
+
+// ===================== 식비 자동 계산 =====================
+// 지급 신청 식사 = (출장 일수 × 3) − 제공된 식사 − 기내식(국외만), 0 미만이면 0
+function tripDays() {
+  const sv = val('f_tripStart'), ev = val('f_tripEnd');
+  if (!sv || !ev) return 0;
+  const toUtc = (x) => { const t = x.split('-'); return Date.UTC(+t[0], +t[1] - 1, +t[2]); };
+  const days = Math.round((toUtc(ev) - toUtc(sv)) / 86400000) + 1;
+  return days > 0 ? days : 0;
+}
+function isAbroad() { return checkedVal('f_domestic') === '국외'; }
+function calcMealsRequested() {
+  const days = tripDays();
+  if (!days) return 0;
+  const provided = Number(val('f_mealsProvided')) || 0;
+  const inflight = isAbroad() ? (Number(val('f_mealsInflight')) || 0) : 0;
+  return Math.max(0, days * 3 - provided - inflight);
+}
+function updateMeals() {
+  const days = tripDays();
+  const out = document.getElementById('mealsRequestedDisplay');
+  const formula = document.getElementById('mealsFormula');
+  if (!days) {
+    out.textContent = '-';
+    formula.textContent = '출장 기간을 입력하면 계산됩니다. (1일 3회 기준)';
+    return;
+  }
+  const provided = Number(val('f_mealsProvided')) || 0;
+  const inflight = isAbroad() ? (Number(val('f_mealsInflight')) || 0) : 0;
+  out.textContent = calcMealsRequested() + '회';
+  formula.textContent = `${days}일 × 3회 = ${days * 3}회` +
+    ` − 제공된 식사 ${provided}회` + (isAbroad() ? ` − 기내식 ${inflight}회` : '');
+  updateEvidenceRequired();
+}
+['f_tripStart', 'f_tripEnd', 'f_mealsProvided', 'f_mealsInflight'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateMeals);
+  document.getElementById(id).addEventListener('change', updateMeals);
+});
+
+// ===================== 추가 지급 (보험/비자): 가입·발급 시에만 비용 입력, 합계 표시 =====================
+function updateExtraTotal() {
+  let total = 0;
+  [['f_insuranceYn', 'f_insuranceCost'], ['f_visaYn', 'f_visaCost']].forEach(([yn, cost]) => {
+    const input = document.getElementById(cost);
+    const on = checkedVal(yn) === 'O';
+    input.disabled = !on;
+    if (!on) input.value = '';
+    if (on) total += Number(input.value) || 0;
+  });
+  document.getElementById('extraTotal').textContent = total.toLocaleString();
+  updateEvidenceRequired();
+}
+['f_insuranceYn', 'f_visaYn'].forEach(name => {
+  document.querySelectorAll(`input[name=${name}]`).forEach(r => r.addEventListener('change', updateExtraTotal));
+});
+['f_insuranceCost', 'f_visaCost'].forEach(id => document.getElementById(id).addEventListener('input', updateExtraTotal));
+
+// ===================== 증빙자료 필수 항목 =====================
+// 작성한 항목에 대해 최소 1개 이상의 증빙자료가 필요:
+//  교통비(항상) / 식비(지급 신청 식사가 있을 때) / 숙박비(숙박 정보를 적었을 때) / 보험·비자(국외에서 가입·발급 시)
+function requiredEvidenceCategories() {
+  const req = ['교통비'];
+  if (calcMealsRequested() > 0) req.push('식비');
+  if (val('f_roommate').trim()) req.push('숙박비');
+  if (isAbroad() && checkedVal('f_insuranceYn') === 'O') req.push('보험');
+  if (isAbroad() && checkedVal('f_visaYn') === 'O') req.push('비자');
+  return req;
+}
+function updateEvidenceRequired() {
+  const req = requiredEvidenceCategories();
+  document.querySelectorAll('.evidence-box').forEach(box => {
+    const badge = box.querySelector('.req-badge');
+    if (badge) badge.style.display = req.indexOf(box.dataset.category) !== -1 ? 'inline-block' : 'none';
+  });
+}
+document.getElementById('f_roommate').addEventListener('input', updateEvidenceRequired);
+updateEvidenceRequired();
 
 // ===================== 출장 일정 (출장 기간에 맞춰 날짜별로 자동 생성, 날짜마다 시간대별 일정 여러 개 추가) =====================
 const scheduleDaysEl = document.getElementById('scheduleDays');
@@ -155,9 +256,14 @@ function rebuildScheduleFromDates() {
 document.getElementById('f_tripStart').addEventListener('change', rebuildScheduleFromDates);
 document.getElementById('f_tripEnd').addEventListener('change', rebuildScheduleFromDates);
 
-// ===================== 교통수단 "기타" 직접입력 토글 =====================
-document.getElementById('f_transport').addEventListener('change', (e) => {
-  document.getElementById('transportOtherField').style.display = e.target.value === '기타' ? 'block' : 'none';
+// ===================== 교통수단 (체크박스, 복수 선택) — "기타" 선택 시 직접 입력 =====================
+function selectedTransports() {
+  return Array.from(document.querySelectorAll('input[name=f_transport]:checked')).map(el => el.value);
+}
+document.querySelectorAll('input[name=f_transport]').forEach(el => {
+  el.addEventListener('change', () => {
+    document.getElementById('transportOtherField').style.display = selectedTransports().indexOf('기타') !== -1 ? 'block' : 'none';
+  });
 });
 
 // ===================== 이메일 입력 시 기존 서명 조회 =====================
@@ -236,6 +342,22 @@ document.getElementById('sigSave').addEventListener('click', async () => {
 // ===================== 제출 =====================
 document.getElementById('submitBtn').addEventListener('click', async () => {
   const btn = document.getElementById('submitBtn');
+
+  // ---- 제출 전 확인 (빠진 항목이 있으면 팝업) ----
+  const problems = [];
+  if (!checkedVal('f_purposeType')) problems.push('출장 목적 유형을 선택해주세요.');
+  if (checkedVal('f_purposeType').indexOf('발표') !== -1 && !val('f_paperTitle').trim()) problems.push('발표 논문 제목을 입력해주세요.');
+  if (selectedTransports().length === 0) problems.push('교통수단을 1개 이상 선택해주세요.');
+  const missingEvidence = requiredEvidenceCategories().filter(c => !(evidenceFiles[c] && evidenceFiles[c].length));
+  if (missingEvidence.length) {
+    const label = { '보험': '여행자보험' };
+    problems.push('다음 항목의 증빙자료를 최소 1개 이상 첨부해주세요:\n   - ' + missingEvidence.map(c => label[c] || c).join('\n   - '));
+  }
+  if (problems.length) {
+    alert(problems.join('\n\n'));
+    return;
+  }
+
   btn.disabled = true;
   try {
     const schedule = Object.keys(scheduleData).sort().map(dateStr => ({
@@ -252,13 +374,15 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
       tripEnd: val('f_tripEnd'),
       domesticOrAbroad: checkedVal('f_domestic'),
       region: val('f_region'),
+      purposeType: checkedVal('f_purposeType'),
       purpose: val('f_purpose'),
-      transportMeans: val('f_transport') === '기타' ? val('f_transportOther') : val('f_transport'),
+      paperTitle: val('f_paperTitle'),
+      transportMeans: selectedTransports().map(t => t === '기타' ? (val('f_transportOther').trim() || '기타') : t).join(', '),
       paymentType: checkedVal('f_paymentType'),
-      paymentAmount: val('f_paymentAmount'),
+      paymentAmount: isCardPaymentSelected() ? '' : val('f_paymentAmount'),
       mealsProvided: val('f_mealsProvided'),
-      mealsRequested: val('f_mealsRequested'),
-      mealsInflight: val('f_mealsInflight'),
+      mealsRequested: calcMealsRequested(), // 서버에서도 다시 계산해서 저장함
+      mealsInflight: isAbroad() ? val('f_mealsInflight') : 0,
       roommate: val('f_roommate'),
       inflightStay: val('f_inflightStay') || 'X',
       insuranceYn: checkedVal('f_insuranceYn'),
@@ -340,7 +464,8 @@ function renderRequestItem(r) {
 
 function detailTable(r) {
   const fields = [
-    ['교통수단', r.transportMeans], ['결제구분', r.paymentType], ['결제금액', r.paymentAmount],
+    ['출장목적 유형', r.purposeType], ['발표 논문', r.paperTitle], ['교통수단', r.transportMeans], ['결제구분', r.paymentType],
+    ['결제금액', String(r.paymentType || '').indexOf('연구비카드') === 0 ? '청구 금액 없음' : r.paymentAmount],
     ['제공식사', r.mealsProvided], ['신청식사', r.mealsRequested], ['기내식', r.mealsInflight], ['동숙인', r.roommate],
     ['기내숙박', r.inflightStay], ['보험가입', r.insuranceYn], ['보험비용', r.insuranceCost],
     ['비자발급', r.visaYn], ['비자비용', r.visaCost],
