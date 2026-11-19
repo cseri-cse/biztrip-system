@@ -134,7 +134,8 @@ function rebuildScheduleFromDates() {
   const cur = new Date(start);
   let count = 0;
   while (cur <= end && count < MAX_DAYS) {
-    newDates.push(cur.toISOString().slice(0, 10));
+    // toISOString()은 UTC 기준이라 한국 시간에서 하루 앞당겨지므로, 로컬 날짜 값으로 직접 만듦
+    newDates.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`);
     cur.setDate(cur.getDate() + 1);
     count++;
   }
@@ -268,19 +269,31 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
       evidence: {}, // 아래에서 업로드 후 채움
     };
 
-    toast('증빙자료 업로드 중...');
     // 임시 requestId 없이 먼저 업로드 (경로는 이메일+타임스탬프로 구분)
+    // 파일을 한 개씩 순서대로 올리면 오래 걸려서, 동시에 올리고 진행 상황을 보여줌
     const tempId = `${payload.email}_${Date.now()}`;
+    const jobs = [];
     for (const category of Object.keys(evidenceFiles)) {
       payload.evidence[category] = [];
-      for (const f of evidenceFiles[category]) {
+      evidenceFiles[category].forEach((f, idx) => jobs.push({ category, f, idx }));
+    }
+    const total = jobs.length;
+    let done = 0;
+    if (total > 0) {
+      btn.textContent = `증빙자료 업로드 중 (0/${total})`;
+      toast(`증빙자료 ${total}개 업로드 중...`);
+      const urls = await Promise.all(jobs.map(async ({ category, f }) => {
         const result = await apiPost('uploadEvidence', {
           category, fileName: f.name, mimeType: f.mimeType, base64Content: f.base64, requestId: tempId,
         });
-        payload.evidence[category].push(result.url);
-      }
+        done++;
+        btn.textContent = `증빙자료 업로드 중 (${done}/${total})`;
+        return result.url;
+      }));
+      jobs.forEach((j, i) => payload.evidence[j.category][j.idx] = urls[i]);
     }
 
+    btn.textContent = '신청서 제출 중...';
     toast('신청서 제출 중...');
     const result = await apiPost('submitRequest', payload);
     toast(`제출 완료! (신청번호: ${result.id})`);
@@ -288,6 +301,7 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
     toast('제출 실패: ' + err.message);
   } finally {
     btn.disabled = false;
+    btn.textContent = '신청서 제출';
   }
 });
 
@@ -334,7 +348,25 @@ function detailTable(r) {
   const table = '<table style="width:100%;font-size:13px;margin-top:8px;">' +
     fields.map(([k, v]) => `<tr><td style="color:#777;padding:2px 8px 2px 0;">${k}</td><td>${v ?? '-'}</td></tr>`).join('') +
     '</table>';
-  return table + scheduleDetailHtml(r.schedule);
+  return table + scheduleDetailHtml(r.schedule) + evidenceDetailHtml(r.evidence);
+}
+
+// 증빙자료: 카테고리별로 파일 링크를 보여줌 (Dropbox 링크 → 클릭하면 새 탭에서 열림)
+function evidenceDetailHtml(evidence) {
+  if (!evidence || typeof evidence !== 'object') return '';
+  const cats = Object.keys(evidence).filter(c => Array.isArray(evidence[c]) && evidence[c].length > 0);
+  if (cats.length === 0) {
+    return '<div style="margin-top:10px;"><div style="color:#777;font-size:13px;">증빙자료</div><div class="hint">첨부된 증빙자료가 없습니다.</div></div>';
+  }
+  const rows = cats.map(cat => {
+    const links = evidence[cat].map((url, i) => {
+      let name = `파일 ${i + 1}`;
+      try { name = decodeURIComponent(String(url).split('?')[0].split('/').pop()) || name; } catch (e) { /* 이름 추출 실패 시 기본값 */ }
+      return `<a href="${url}" target="_blank" rel="noopener">${name}</a>`;
+    }).join(' · ');
+    return `<div style="margin-top:4px;"><strong style="font-size:13px;">${cat}</strong> <span class="doc-links">${links}</span></div>`;
+  }).join('');
+  return `<div style="margin-top:10px;"><div style="color:#777;font-size:13px;">증빙자료</div>${rows}</div>`;
 }
 
 function scheduleDetailHtml(schedule) {
