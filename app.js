@@ -420,7 +420,7 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
     btn.textContent = '신청서 제출 중...';
     toast('신청서 제출 중...');
     const result = await apiPost('submitRequest', payload);
-    toast(`제출 완료! (신청번호: ${result.id})`);
+    showDoneModal(result.id, payload.email);
   } catch (err) {
     toast('제출 실패: ' + err.message);
   } finally {
@@ -602,4 +602,20 @@ function bindAdminActions(r) {
       toast('반려 실패: ' + err.message);
     }
   });
+}
+
+
+// ===================== 제출 완료 안내창 =====================
+function showDoneModal(requestId, email) {
+  document.getElementById('doneId').textContent = requestId;
+  document.getElementById('doneModal').style.display = 'flex';
+  document.getElementById('doneMineBtn').onclick = () => {
+    document.getElementById('doneModal').style.display = 'none';
+    document.querySelector('.tab-btn[data-tab=mine]').click();
+    document.getElementById('mine_email').value = email;
+    document.getElementById('mineLoadBtn').click();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  // 새 신청: 입력 내용을 깨끗하게 비우기 위해 페이지를 새로고침 (서명은 서버에 저장돼 있어 다시 안 해도 됨)
+  document.getElementById('doneNewBtn').onclick = () => location.reload();
 }

@@ -225,6 +225,18 @@
 
 </main>
 
+<div class="modal-overlay" id="doneModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-icon">✓</div>
+    <h2>제출이 완료되었습니다</h2>
+    <p class="modal-id">신청번호 <strong id="doneId"></strong></p>
+    <p class="hint">관리자 승인 후 여비지급요청서와 출장계획서가 생성되어 담당자에게 전달됩니다.<br/>신청번호는 메모해두시면 좋아요. 진행 상태는 "내 신청 내역"에서 확인할 수 있습니다.</p>
+    <div class="modal-actions">
+      <button class="primary" id="doneMineBtn">내 신청 내역 보기</button>
+      <button class="ghost" id="doneNewBtn">새 신청 작성</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
