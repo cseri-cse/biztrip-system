@@ -340,8 +340,12 @@ function detailTable(r) {
 function scheduleDetailHtml(schedule) {
   if (!Array.isArray(schedule) || schedule.length === 0) return '';
   const days = schedule.map((day, idx) => {
+    // 이전 버전(날짜+설명 한 줄짜리 문자열) 데이터가 남아있어도 깨지지 않도록 호환 처리
+    if (typeof day === 'string') {
+      return `<div style="margin-top:6px;"><strong>${idx + 1}.</strong> <span style="color:#444;">${day}</span></div>`;
+    }
     const items = (day.items || []).map(it => `${it.start || ''}-${it.end || ''} ${it.text || ''}`.trim()).join('<br>');
-    return `<div style="margin-top:6px;"><strong>${idx + 1}. ${day.date}</strong><div style="color:#444;">${items}</div></div>`;
+    return `<div style="margin-top:6px;"><strong>${idx + 1}. ${day.date || ''}</strong><div style="color:#444;">${items}</div></div>`;
   }).join('');
   return `<div style="margin-top:8px;"><div style="color:#777;font-size:13px;">출장일정</div>${days}</div>`;
 }
